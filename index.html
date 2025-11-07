@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SPC App (Iframe Domain)</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>SPC inside iframe</h1>
+
+    <div class="card grid">
+      <button id="btn-create">Create Credential</button>
+      <button id="btn-pay">Pay $5</button>
+    </div>
+
+    <div class="card">
+      <pre id="out">—</pre>
+    </div>
+  </div>
+
+<script>
+// ----- Helpers -----
+const $ = id => document.getElementById(id);
+const out = $('out');
+
+function log(msg, obj) {
+  out.textContent = msg + "\n" + JSON.stringify(obj, null, 2);
+}
+
+function b64urlToBytes(b64url) {
+  const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64);
+  return Uint8Array.from(bin, x => x.charCodeAt(0));
+}
+
+function bytesToB64url(buf) {
+  const bin = String.fromCharCode(...new Uint8Array(buf));
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function normalize(field) {
+  if (!field) return null;
+  if (field instanceof ArrayBuffer) return bytesToB64url(field);
+  if (ArrayBuffer.isView(field)) return bytesToB64url(field.buffer);
+  if (typeof field === "string") return field;
+  return null;
+}
+
+function randomB64url(size = 32) {
+  return Buffer.from(crypto.randomBytes(size))
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+// ----- Create Credential -----
+async function createCredential() {
+  try {
+    const ch = await fetch('/api/challenge').then(r => r.json());
+    // const ch = randomB64url();
+    const publicKey = {
+      challenge: b64urlToBytes(ch.challenge),
+      rp: {
+        id: "3c6d172d8290.ngrok-free.app",
+        name: "Iframe SPC Merchant"
+      },
+      user: {
+        id: crypto.getRandomValues(new Uint8Array(16)),
+        name: "deepak@example.com",
+        displayName: "Deepak Sharma"
+      },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+      authenticatorSelection: {
+        userVerification: "required",
+        residentKey: "required",
+        authenticatorAttachment: "platform"
+      },
+      extensions: {
+        payment: {
+          rpId: "fanciful-frangipane-1b19f9.netlify.app",
+          isPayment: true
+        }
+      }
+    };
+
+    const cred = await navigator.credentials.create({ publicKey });
+
+    const rawId = bytesToB64url(cred.rawId);
+    localStorage.setItem("paymentCredId", rawId);
+
+    log("✅ Credential Created", { rawId });
+
+  } catch (err) {
+    log("❌ ERROR", { err: String(err) });
+    parent.postMessage({ type: "SPC_ERROR", error: String(err) }, "*");
+  }
+}
+
+// ----- SPC - Pay -----
+async function pay() {
+  try {
+    const credId = localStorage.getItem("paymentCredId");
+    if (!credId) return log("❌ No credential found. Create first.", {});
+
+    const { challenge, rpId } = await fetch('/api/challenge').then(r => r.json());
+    const { networkData } = await fetch('/api/network-data').then(r => r.json());
+
+    const instrument = {
+      displayName: "Deepak •••• 1234",
+      icon: "https://upload.wikimedia.org/wikipedia/commons/0/04/Visa.svg"
+    };
+
+    const methodData = [{
+      supportedMethods: "secure-payment-confirmation",
+      data: {
+        rpId,
+        challenge: b64urlToBytes(challenge),
+        credentialIds: [ b64urlToBytes(credId) ],
+        payeeName: "Iframe SPC Merchant",
+        payeeOrigin: "https://fanciful-frangipane-1b19f9.netlify.app",
+        networkData: b64urlToBytes(networkData),
+        instrument
+      }
+    }];
+
+    const details = {
+      total: { label: "Total", amount: { currency: "USD", value: "5.00" } }
+    };
+
+    const request = new PaymentRequest(methodData, details);
+    const response = await request.show();
+
+    const d = response.details;
+
+    const result = {
+      id: d.id,
+      rawId: d.rawId,
+      type: "public-key",
+      response: {
+        clientDataJSON: normalize(d.response.clientDataJSON),
+        authenticatorData: normalize(d.response.authenticatorData),
+        signature: normalize(d.response.signature),
+        userHandle: normalize(d.response.userHandle)
+      }
+    };
+
+    await response.complete("success");
+
+    parent.postMessage({ type: "SPC_RESULT", payload: result }, "*");
+
+    log("✅ SPC OK", result);
+
+  } catch (err) {
+    parent.postMessage({ type: "SPC_ERROR", error: String(err) }, "*");
+    log("❌ SPC ERROR", { err: String(err) });
+  }
+}
+
+// ----- Button Wiring -----
+$('btn-create').onclick = createCredential;
+$('btn-pay').onclick = pay;
+
+// ----- Parent → Iframe Trigger -----
+window.addEventListener("message", event => {
+  if (event.data?.type === "START_SPC") pay();
+});
+</script>
+
+</body>
+</html>
