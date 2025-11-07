@@ -4,7 +4,7 @@ const app = express();
 
 app.use(express.json());
 
-const RP_ID = "golden-melba-3622e1.netlify.app";
+const RP_ID = "iframe-app-rho.vercel.app";
 
 function randomB64url(size = 32) {
   return crypto.randomBytes(size)

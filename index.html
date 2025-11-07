@@ -79,7 +79,7 @@ async function createCredential() {
       },
       extensions: {
         payment: {
-          rpId: "golden-melba-3622e1.netlify.app",
+          rpId: "iframe-app-rho.vercel.app",
           isPayment: true
         }
       }
@@ -119,7 +119,7 @@ async function pay() {
         challenge: b64urlToBytes(challenge),
         credentialIds: [ b64urlToBytes(credId) ],
         payeeName: "Iframe SPC Merchant",
-        payeeOrigin: "https://golden-melba-3622e1.netlify.app",
+        payeeOrigin: "https://iframe-app-rho.vercel.app/",
         networkData: b64urlToBytes(networkData),
         instrument
       }
