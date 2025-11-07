@@ -4,7 +4,7 @@ const app = express();
 
 app.use(express.json());
 
-const RP_ID = "deepak2403-sha.github.io/iframe-app";
+const RP_ID = "golden-melba-3622e1.netlify.app";
 
 function randomB64url(size = 32) {
   return crypto.randomBytes(size)

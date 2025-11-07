@@ -79,7 +79,7 @@ async function createCredential() {
       },
       extensions: {
         payment: {
-          rpId: "deepak2403-sha.github.io/iframe-app",
+          rpId: "golden-melba-3622e1.netlify.app",
           isPayment: true
         }
       }
@@ -119,7 +119,7 @@ async function pay() {
         challenge: b64urlToBytes(challenge),
         credentialIds: [ b64urlToBytes(credId) ],
         payeeName: "Iframe SPC Merchant",
-        payeeOrigin: "https://deepak2403-sha.github.io/iframe-app",
+        payeeOrigin: "https://golden-melba-3622e1.netlify.app",
         networkData: b64urlToBytes(networkData),
         instrument
       }
